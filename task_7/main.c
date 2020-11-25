@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include "vector.h"
 
-#define TIMEOUT 5000
+#define TIMEOUT ((int)5000)
 #define FILE_TIMEOUT_MS ((int)5000)
 
 bool wait_for_input(int file_des, int timeout_ms)
@@ -25,7 +25,7 @@ bool wait_for_input(int file_des, int timeout_ms)
 
 bool fill_table(vector_t* table, int file_des)
 {
-	struct stat = file_stat;
+	struct stat file_stat = {0};
 
 	if (fstat(file_des, &file_stat) != 0)
 	{
@@ -37,7 +37,7 @@ bool fill_table(vector_t* table, int file_des)
 	char* file_buffer = NULL;
 	errno = 0;
 
-	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size + 1, PROT_READ,
+	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
 										MAP_PRIVATE, file_des, 0)) == MAP_FAILED )
 	{
 		// If mmap(...) set errno in EAGAIN, trying to read data from file
@@ -53,12 +53,11 @@ bool fill_table(vector_t* table, int file_des)
 			}
 		}
 	}
-	file_buffer[file_stat.st_size] = '\0'; // making terminated string
-	char* n_pos = buffer;
+	char* n_pos = file_buffer;
 
 	while ((n_pos = strchr(n_pos, '\n')) != NULL)
 	{
-		if (vector_push_back(table, current_pos + (n_pos - buffer)))
+		if (vector_push_back(table, n_pos - file_buffer))
 		{
 			perror("fill_table error, cannot to add element to array: ");
 			fcntl(file_des, F_SETFL, old_flags);
