@@ -11,6 +11,17 @@
 #include "vector.h"
 
 #define TIMEOUT 5000
+#define FILE_TIMEOUT_MS ((int)5000)
+
+bool wait_for_input(int file_des, int timeout_ms)
+{
+	struct pollfd poll_file_des = {
+		.fd = file_des,
+		.events = POLLIN,
+		.revents = 0,
+	};
+	return poll(&poll_file_des, 1, timeout_ms) == 1;
+}
 
 bool fill_table(vector_t* table, int file_des)
 {
@@ -22,7 +33,7 @@ bool fill_table(vector_t* table, int file_des)
 		return true;
 	}
 	int old_flags = fcntl(file_des, F_GETFL); // Set file_des in nonblock mode
-    fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
+	fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
 	char* file_buffer = NULL;
 	errno = 0;
 
@@ -97,16 +108,6 @@ bool line_manage(int file_des, vector_t* table, size_t line_num)
 	return false;
 }
 
-bool wait_stdin(int timeout_ms)
-{
-	static struct pollfd stdin_fdes = {
-		.fd = 0, //stdin filedes
-		.events = POLLIN,
-		.revents = 0
-	};
-	return poll(&stdin_fdes, 1, timeout_ms) == 1;
-}
-
 void scan_luint(size_t* value)
 {
 	while(scanf("%lu", value) == 0)
@@ -147,7 +148,7 @@ int main(int argc, char** argv)
 	);
 	for(;;)
 	{
-		if (wait_stdin(TIMEOUT))
+		if (wait_for_input(0 /*stdin*/, TIMEOUT))
 		{
 			scan_luint(&line_num);
 
