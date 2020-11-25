@@ -9,29 +9,29 @@
 #include <stdlib.h>
 #include "vector.h"
 
-#define BUFFER_SIZE 4
 #define TIMEOUT 5000
 
 bool fill_table(vector_t* table, int file_des)
 {
-    int old_flags = fcntl(file_des, F_GETFL);
+	struct stat = file_stat;
+
+	if (fstat(file_des, &file_stat) != 0)
+	{
+		perror("Error while filling the table: ");
+		return true;
+	}
+	int old_flags = fcntl(file_des, F_GETFL);
     /*
         * Set file_des in nonblock mode
     */
     fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
 
-    char buffer[BUFFER_SIZE + 1] = {0};
-    off_t current_pos = 0;
-    ssize_t read_count = 0;
-
-    while((read_count = read(file_des, buffer, BUFFER_SIZE)) != 0)
+    if (read_count == -1)
     {
-        if (read_count == -1)
-        {
-            perror("fill_table error, cannot read from file: ");
-            fcntl(file_des, F_SETFL, old_flags);
-            return true;
-        }
+        perror("fill_table error, cannot read from file: ");
+        fcntl(file_des, F_SETFL, old_flags);
+    	return true;
+    }
         buffer[read_count] = '\0'; // making terminated string
         char* n_pos = buffer;
 
