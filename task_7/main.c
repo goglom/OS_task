@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
@@ -20,36 +21,42 @@ bool fill_table(vector_t* table, int file_des)
 		perror("Error while filling the table: ");
 		return true;
 	}
-	int old_flags = fcntl(file_des, F_GETFL);
-    /*
-        * Set file_des in nonblock mode
-    */
+	int old_flags = fcntl(file_des, F_GETFL); // Set file_des in nonblock mode
     fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
+	char* file_buffer = NULL;
+	errno = 0;
 
-    if (read_count == -1)
-    {
-        perror("fill_table error, cannot read from file: ");
-        fcntl(file_des, F_SETFL, old_flags);
-    	return true;
-    }
-        buffer[read_count] = '\0'; // making terminated string
-        char* n_pos = buffer;
+	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size + 1, PROT_READ,
+										MAP_PRIVATE, file_des, 0)) == MAP_FAILED )
+	{
+		// If mmap(...) set errno in EAGAIN, trying to read data from file
+		// once again with timeout for TIMEOUT ms.
+		//
+		if (errno == EAGAIN)
+		{
+			if (!wait_for_input(file_des, FILE_TIMEOUT_MS))
+			{
+				fcntl(file_des, F_SETFL, old_flags);
+				perror("Timeout error, could not open file: ");
+				return true;
+			}
+		}
+	}
+	file_buffer[file_stat.st_size] = '\0'; // making terminated string
+	char* n_pos = buffer;
 
-        while ((n_pos = strchr(n_pos, '\n')) != NULL)
-        {
-            if (vector_push_back(table, current_pos + (n_pos - buffer)))
-            {
-                perror("fill_table error, cannot to add element to array: ");
-                fcntl(file_des, F_SETFL, old_flags);
-                return true;
-            }
-            ++n_pos;
-        }
-        current_pos += read_count;
-    }
-    /*
-        * Return old mode for file_des
-    */
+	while ((n_pos = strchr(n_pos, '\n')) != NULL)
+	{
+		if (vector_push_back(table, current_pos + (n_pos - buffer)))
+		{
+			perror("fill_table error, cannot to add element to array: ");
+			fcntl(file_des, F_SETFL, old_flags);
+			return true;
+		}
+		++n_pos;
+	}
+    //Return old mode for file_des
+    //
     fcntl(file_des, F_SETFL, old_flags);
     return false;
 }
