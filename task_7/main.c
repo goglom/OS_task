@@ -68,7 +68,12 @@ bool fill_table(vector_t* table, int file_des)
     //Return old mode for file_des
     //
     fcntl(file_des, F_SETFL, old_flags);
-    return false;
+    // Unmap mapped file
+	//
+	if (munmap(file_buffer, file_stat.st_size) == -1)
+		perror("Error while unmapping file from memory: ");
+
+	return false;
 }
 
 void print_line(int file_des, vector_t* table, size_t line_number)
