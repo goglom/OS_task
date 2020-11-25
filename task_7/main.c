@@ -38,7 +38,7 @@ bool fill_table(vector_t* table, int file_des)
 	errno = 0;
 
 	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
-										MAP_PRIVATE, file_des, 0)) == MAP_FAILED )
+										MAP_SHARED, file_des, 0)) == MAP_FAILED )
 	{
 		// If mmap(...) set errno in EAGAIN, trying to read data from file
 		// once again with timeout for TIMEOUT ms.
