@@ -7,89 +7,94 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <poll.h>
-
 #include "vector.h"
 
 #define BUFFER_SIZE 4
 #define FILE_TIMEOUT_MS ((int)5000)
 
-bool wait_for_input(int file_des, int timeout_ms)
+int wait_for_input(int file_des, int timeout_ms)
 {
 	struct pollfd poll_file_des = {
 		.fd = file_des,
 		.events = POLLIN,
-		.revents = 0,
+		.revents = 0
 	};
-	return poll(&poll_file_des, 1, timeout_ms) == 1;
+	return poll(&poll_file_des, 1, timeout_ms);
 }
 
 bool fill_table(vector_t* table, int file_des)
 {
-	int old_flags = fcntl(file_des, F_GETFL);
-	// Set file_des in nonblock mode
-	//
-	fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
+    int old_flags = fcntl(file_des, F_GETFL);
+    // Set file_des in nonblock mode
+    //
+    fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
 
-	char buffer[BUFFER_SIZE + 1] = {0};
-	off_t current_pos = 0;
-	ssize_t read_count = 0;
-	errno = 0;
+    char buffer[BUFFER_SIZE + 1] = {0};
+    off_t current_pos = 0;
+    ssize_t read_count = 0;
+    errno = 0;
 
-	while((read_count = read(file_des, buffer, BUFFER_SIZE)) != 0)
-	{
-		// check errno for EINTR, and other valid errors
-		if (read_count == -1)
-		{
-			// If read(...) set errno in EINTR, trying to read data from file again
-			// in loop.
-			//
-			if (errno == EINTR)
-			{
-				errno = 0;
-				continue;
-			}
-			// If read(...) set errno in EAGAIN, trying to read data from file
-			// once again with timeout for TIMEOUT ms.
-			//
-			else if (errno == EAGAIN)
-			{
-				if (!wait_for_input(file_des, FILE_TIMEOUT_MS))
+    while((read_count = read(file_des, buffer, BUFFER_SIZE)) != 0)
+    {
+        // check errno for EINTR, and other valid errors
+        if (read_count == -1)
+        {
+            // If read(...) set errno in EINTR, trying to read data from file again
+            // in loop.
+            //
+            if (errno == EINTR)
+            {
+                continue;
+            }
+            // If read(...) set errno in EAGAIN, trying to read data from file
+            // once again with timeout for TIMEOUT ms.
+            //
+            else if (errno == EAGAIN)
+            {
+				int wait_res = wait_for_input(file_des, FILE_TIMEOUT_MS);
+
+				if (wait_res == 0)
+                {
+                    fcntl(file_des, F_SETFL, old_flags);
+                    perror("Timeout error, could not open file: ");
+                    return true;
+                }
+				else if (wait_res == -1)
 				{
-					fcntl(file_des, F_SETFL, old_flags);
-					perror("Timeout error, could not open file: ");
+					perror("Error while waiting from stdin:  ");
 					return true;
 				}
-				errno = 0;
-			}
-			// If read(...) have other errors reading from file considered
-			// unseccessful and function returns true;
-			//
-			else
-			{
-				perror("fill_table error, cannot read from file: ");
-				fcntl(file_des, F_SETFL, old_flags);
-				return true;
-			}
-		}
-		buffer[read_count] = '\0'; // making terminated string
-		char* n_pos = buffer;
+            }
+            // If read(...) have other errors reading from file considered
+            // unseccessful and function returns true;
+            //
+            else
+            {
+                perror("fill_table error, cannot read from file: ");
+                fcntl(file_des, F_SETFL, old_flags);
+                return true;
+            }
+        }
 
-		while ((n_pos = strchr(n_pos, '\n')) != NULL)
-		{
-			if (vector_push_back(table, current_pos + (n_pos - buffer)))
-			{
-				perror("fill_table error, cannot to add element to array: ");
-				fcntl(file_des, F_SETFL, old_flags);
-				return true;
-			}
-			++n_pos;
-		}
-		current_pos += read_count;
-	}
-	//Return old mode for file_des
-	//
-	fcntl(file_des, F_SETFL, old_flags);
-	return false;
+        buffer[read_count] = '\0'; // making terminated string
+        char* n_pos = buffer;
+
+        while ((n_pos = strchr(n_pos, '\n')) != NULL)
+        {
+            if (vector_push_back(table, current_pos + (n_pos - buffer)))
+            {
+                perror("fill_table error, cannot to add element to array: ");
+                fcntl(file_des, F_SETFL, old_flags);
+                return true;
+            }
+            ++n_pos;
+        }
+        current_pos += read_count;
+    }
+    //Return old mode for file_des
+    //
+    fcntl(file_des, F_SETFL, old_flags);
+    return false;
 }
 
 void print_line(int file_des, vector_t* table, size_t line_number)
