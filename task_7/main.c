@@ -48,11 +48,11 @@ bool fill_table(vector_t* table, int file_des)
 			int wait_res = wait_for_input(file_des, FILE_TIMEOUT_MS);
 
 			if (wait_res == 0)
-               		 {
-                    		fcntl(file_des, F_SETFL, old_flags);
-                   		perror("Timeout error, could not open file: ");
-                    		return true;
-                	}
+            {
+                fcntl(file_des, F_SETFL, old_flags);
+                perror("Timeout error, could not open file: ");
+            	return true;
+			}
 			else if (wait_res == -1)
 			{
 				perror("Error while waiting from stdin:  ");
@@ -78,8 +78,9 @@ bool fill_table(vector_t* table, int file_des)
     // Unmap mapped file
 	//
 	if (munmap(file_buffer, file_stat.st_size) == -1)
+	{
 		perror("Error while unmapping file from memory: ");
-
+	}
 	return false;
 }
 
