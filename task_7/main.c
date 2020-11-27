@@ -13,14 +13,14 @@
 #define TIMEOUT ((int)5000)
 #define FILE_TIMEOUT_MS ((int)5000)
 
-bool wait_for_input(int file_des, int timeout_ms)
+int wait_for_input(int file_des, int timeout_ms)
 {
 	struct pollfd poll_file_des = {
 		.fd = file_des,
 		.events = POLLIN,
-		.revents = 0,
+		.revents = 0
 	};
-	return poll(&poll_file_des, 1, timeout_ms) == 1;
+	return poll(&poll_file_des, 1, timeout_ms);
 }
 
 bool fill_table(vector_t* table, int file_des)
@@ -38,17 +38,24 @@ bool fill_table(vector_t* table, int file_des)
 	errno = 0;
 
 	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
-										MAP_SHARED, file_des, 0)) == MAP_FAILED )
+							MAP_SHARED, file_des, 0)) == MAP_FAILED )
 	{
 		// If mmap(...) set errno in EAGAIN, trying to read data from file
 		// once again with timeout for TIMEOUT ms.
 		//
 		if (errno == EAGAIN)
 		{
-			if (!wait_for_input(file_des, FILE_TIMEOUT_MS))
+			int wait_res = wait_for_input(file_des, FILE_TIMEOUT_MS);
+
+			if (wait_res == 0)
+               		 {
+                    		fcntl(file_des, F_SETFL, old_flags);
+                   		perror("Timeout error, could not open file: ");
+                    		return true;
+                	}
+			else if (wait_res == -1)
 			{
-				fcntl(file_des, F_SETFL, old_flags);
-				perror("Timeout error, could not open file: ");
+				perror("Error while waiting from stdin:  ");
 				return true;
 			}
 		}
@@ -150,16 +157,16 @@ int main(int argc, char** argv)
 			"Input 0 to exit:\n",
 			TIMEOUT / 1000
 	);
-	for(;;)
+	for(int result = 0;; result =  wait_for_input(0 /*stdin*/, TIMEOUT;)
 	{
-		if (wait_for_input(0 /*stdin*/, TIMEOUT))
+		if (result == 1)
 		{
 			scan_luint(&line_num);
 
 			if (line_manage(file_des, &table, line_num))
 				break;
 		}
-		else
+		else if (result == 0)
 		{
 			printf("Input timeout\n");
 
@@ -167,11 +174,14 @@ int main(int argc, char** argv)
 			{
 				line_manage(file_des, &table, i);
 			}
-
+			break;
+		}
+		else (result == -1)
+		{
+			perror("Error while wait for input from stdin: ");
 			break;
 		}
 	}
-
 	close (file_des);
 	vector_destroy(&table);
 	return EXIT_SUCCESS;
