@@ -37,7 +37,6 @@ bool fill_table(vector_t* table, int file_des)
 	fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
 	char* file_buffer = NULL;
 	errno = 0;
-
 	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
 		MAP_PRIVATE, /*also possible to use MAP_SHARED, cause set PROT_READ flag*/
 		file_des, 0)) == MAP_FAILED )
@@ -167,7 +166,7 @@ int main(int argc, char** argv)
 			"Input 0 to exit:\n",
 			TIMEOUT / 1000
 	);
-	for(int result = 0;; result =  wait_for_input(0 /*stdin*/, TIMEOUT;)
+	for(int result = 0;; result =  wait_for_input(0 /*stdin*/, TIMEOUT));
 	{
 		if (result == 1)
 		{
