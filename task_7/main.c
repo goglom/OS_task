@@ -166,7 +166,7 @@ int main(int argc, char** argv)
 			"Input 0 to exit:\n",
 			TIMEOUT / 1000
 	);
-	for(int result = 0;; result =  wait_for_input(0 /*stdin*/, TIMEOUT));
+	for(int result = 0;; result =  wait_for_input(0 /*stdin*/, TIMEOUT))
 	{
 		if (result == 1)
 		{
