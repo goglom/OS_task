@@ -40,7 +40,7 @@ bool fill_table(vector_t* table, int file_des)
 	// Also possible to use MAP_SHARED, cause set PROT_READ flag
 	file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
 														MAP_PRIVATE, file_des, 0);
-	if (file_buffer == MAP_FAILED )
+	if (file_buffer == MAP_FAILED)
 	{
 		// If mmap(...) set errno in EAGAIN, trying to read data from file
 		// once again with timeout for TIMEOUT ms.
@@ -61,11 +61,16 @@ bool fill_table(vector_t* table, int file_des)
 				return true;
 			}
 		}
+		else
+		{
+			fcntl(file_des, F_SETFL, old_flags);
+			perror("Error while read file: ");
+			return true;
+		}
 	}
 	// Destroying the link to the file, since the descriptor is not used further,
 	// cause it is captured on syscall mmap(...)
 	//
-	close(file_des);
 	char* n_pos = file_buffer;
 
 	while ((n_pos = strchr(n_pos, '\n')) != NULL)
@@ -74,6 +79,8 @@ bool fill_table(vector_t* table, int file_des)
 		{
 			fcntl(file_des, F_SETFL, old_flags);
 			perror("fill_table error, cannot to add element to array: ");
+
+			printf("BUG LOL\n");
 
 			if (munmap(file_buffer, file_stat.st_size) == -1)
 				perror("Error while unmapping file from memory: ");
@@ -167,8 +174,10 @@ int main(int argc, char** argv)
 			"Input 0 to exit:\n",
 			TIMEOUT / 1000
 	);
-	for(int result = 0;; result =  wait_for_input(0 /*stdin*/, TIMEOUT))
+	while(1)
 	{
+		int result =  wait_for_input(0 /*stdin*/, TIMEOUT);
+
 		if (result == 1)
 		{
 			scan_luint(&line_num);
@@ -184,7 +193,7 @@ int main(int argc, char** argv)
 			}
 			break;
 		}
-		else (result == -1)
+		else
 		{
 			perror("Error while wait for input from stdin: ");
 			break;
