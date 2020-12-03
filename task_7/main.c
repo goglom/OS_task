@@ -26,19 +26,21 @@ int wait_for_input(int file_des, int timeout_ms)
 bool fill_table(vector_t* table, int file_des)
 {
 	struct stat file_stat = {0};
-
 	if (fstat(file_des, &file_stat) != 0)
 	{
 		perror("Error while filling the table: ");
 		return true;
 	}
-	int old_flags = fcntl(file_des, F_GETFL); // Set file_des in nonblock mode
+	// Set file_des in nonblock mode
+	//
+	int old_flags = fcntl(file_des, F_GETFL); 
 	fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
 	char* file_buffer = NULL;
 	errno = 0;
 
 	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
-							MAP_SHARED, file_des, 0)) == MAP_FAILED )
+		MAP_PRIVATE, /*also possible to use MAP_SHARED, cause set PROT_READ flag*/
+		file_des, 0)) == MAP_FAILED )
 	{
 		// If mmap(...) set errno in EAGAIN, trying to read data from file
 		// once again with timeout for TIMEOUT ms.
@@ -46,7 +48,6 @@ bool fill_table(vector_t* table, int file_des)
 		if (errno == EAGAIN)
 		{
 			int wait_res = wait_for_input(file_des, FILE_TIMEOUT_MS);
-
 			if (wait_res == 0)
             {
                 fcntl(file_des, F_SETFL, old_flags);
@@ -55,32 +56,40 @@ bool fill_table(vector_t* table, int file_des)
 			}
 			else if (wait_res == -1)
 			{
+				fcntl(file_des, F_SETFL, old_flags);
 				perror("Error while waiting from stdin:  ");
 				return true;
 			}
 		}
 	}
+	// Destroying the link to the file, since the descriptor is not used further,
+	// cause it is captured on syscall mmap(...)
+	//
+	close(file_des);
 	char* n_pos = file_buffer;
 
 	while ((n_pos = strchr(n_pos, '\n')) != NULL)
 	{
 		if (vector_push_back(table, n_pos - file_buffer))
 		{
-			perror("fill_table error, cannot to add element to array: ");
 			fcntl(file_des, F_SETFL, old_flags);
+			perror("fill_table error, cannot to add element to array: ");
+			
+			if (munmap(file_buffer, file_stat.st_size) == -1)
+				perror("Error while unmapping file from memory: ");
+			
 			return true;
 		}
 		++n_pos;
 	}
-    //Return old mode for file_des
+    // Return previous mode for file_des
     //
     fcntl(file_des, F_SETFL, old_flags);
     // Unmap mapped file
 	//
 	if (munmap(file_buffer, file_stat.st_size) == -1)
-	{
 		perror("Error while unmapping file from memory: ");
-	}
+	
 	return false;
 }
 
