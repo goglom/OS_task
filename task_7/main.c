@@ -33,13 +33,14 @@ bool fill_table(vector_t* table, int file_des)
 	}
 	// Set file_des in nonblock mode
 	//
-	int old_flags = fcntl(file_des, F_GETFL); 
+	int old_flags = fcntl(file_des, F_GETFL);
 	fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
 	char* file_buffer = NULL;
 	errno = 0;
-	if ( (file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
-		MAP_PRIVATE, /*also possible to use MAP_SHARED, cause set PROT_READ flag*/
-		file_des, 0)) == MAP_FAILED )
+	// Also possible to use MAP_SHARED, cause set PROT_READ flag
+	file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
+														MAP_PRIVATE, file_des, 0);
+	if (file_buffer == MAP_FAILED )
 	{
 		// If mmap(...) set errno in EAGAIN, trying to read data from file
 		// once again with timeout for TIMEOUT ms.
@@ -73,10 +74,10 @@ bool fill_table(vector_t* table, int file_des)
 		{
 			fcntl(file_des, F_SETFL, old_flags);
 			perror("fill_table error, cannot to add element to array: ");
-			
+
 			if (munmap(file_buffer, file_stat.st_size) == -1)
 				perror("Error while unmapping file from memory: ");
-			
+
 			return true;
 		}
 		++n_pos;
@@ -88,7 +89,7 @@ bool fill_table(vector_t* table, int file_des)
 	//
 	if (munmap(file_buffer, file_stat.st_size) == -1)
 		perror("Error while unmapping file from memory: ");
-	
+
 	return false;
 }
 
@@ -171,14 +172,12 @@ int main(int argc, char** argv)
 		if (result == 1)
 		{
 			scan_luint(&line_num);
-
 			if (line_manage(file_des, &table, line_num))
 				break;
 		}
 		else if (result == 0)
 		{
 			printf("Input timeout\n");
-
 			for (size_t i = 1; i <= table.size; ++i)
 			{
 				line_manage(file_des, &table, i);
