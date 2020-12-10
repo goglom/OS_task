@@ -27,7 +27,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 2)
 	{
-		printf("Error: invalid argument\nUsage: %s filename",
+		printf("Error: invalid argument\nUsage: %s filename\n",
 			argv[0]
 		);
 		return EXIT_FAILURE;
@@ -42,12 +42,13 @@ int main(int argc, char** argv)
 	// Child branch
 	if (child_pid == 0)
 	{
-		if (execl("/bin/cat", "cat", argv[1], (char*)NULL) == -1)
+		if (execlp("cat", "cat", argv[1], (char*)NULL) == -1)
 		{
 			perror("Error while executing /bin/cat: ");
 			return EXIT_FAILURE;
 		}
 	}
+	// Parent branch
 	else
 	{
 		printf("1) Parent print some text\n");
