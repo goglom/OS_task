@@ -23,117 +23,73 @@ int wait_for_input(int file_des, int timeout_ms)
 	return poll(&poll_file_des, 1, timeout_ms);
 }
 
-bool fill_table(vector_t* table, int file_des)
+void* map_file_to_buffer(int file_des, size_t* buffer_size)
 {
 	struct stat file_stat = {0};
+	void* file_buffer = NULL;
+
 	if (fstat(file_des, &file_stat) != 0)
 	{
 		perror("Error while filling the table: ");
-		return true;
+		return NULL;
 	}
-	// Set file_des in nonblock mode
-	//
-	int old_flags = fcntl(file_des, F_GETFL);
-	fcntl(file_des, F_SETFL, old_flags | O_NONBLOCK);
-	char* file_buffer = NULL;
-	errno = 0;
-	// Also possible to use MAP_SHARED, cause set PROT_READ flag
-	file_buffer = mmap((caddr_t) 0, file_stat.st_size, PROT_READ,
-														MAP_PRIVATE, file_des, 0);
+	*buffer_size = file_stat.st_size;
+	file_buffer = mmap((caddr_t) 0, *buffer_size, PROT_READ, MAP_PRIVATE, file_des, 0);
+
 	if (file_buffer == MAP_FAILED)
 	{
-		// If mmap(...) set errno in EAGAIN, trying to read data from file
-		// once again with timeout for TIMEOUT ms.
-		//
-		if (errno == EAGAIN)
-		{
-			int wait_res = wait_for_input(file_des, FILE_TIMEOUT_MS);
-			if (wait_res == 0)
-            {
-                fcntl(file_des, F_SETFL, old_flags);
-                perror("Timeout error, could not open file: ");
-            	return true;
-			}
-			else if (wait_res == -1)
-			{
-				fcntl(file_des, F_SETFL, old_flags);
-				perror("Error while waiting from stdin:  ");
-				return true;
-			}
-		}
-		else
-		{
-			fcntl(file_des, F_SETFL, old_flags);
-			perror("Error while read file: ");
-			return true;
-		}
+		perror("Error while mapping file: ");
 	}
-	// Destroying the link to the file, since the descriptor is not used further,
-	// cause it is captured on syscall mmap(...)
-	//
-	char* n_pos = file_buffer;
+	return file_buffer;
+}
+
+int fill_table(vector_t* table, char const* file_buffer)
+{
+	char const* n_pos = file_buffer;
 
 	while ((n_pos = strchr(n_pos, '\n')) != NULL)
 	{
 		if (vector_push_back(table, n_pos - file_buffer))
 		{
-			fcntl(file_des, F_SETFL, old_flags);
 			perror("fill_table error, cannot to add element to array: ");
-
-			printf("BUG LOL\n");
-
-			if (munmap(file_buffer, file_stat.st_size) == -1)
-				perror("Error while unmapping file from memory: ");
-
-			return true;
+			return -1;
 		}
 		++n_pos;
 	}
-    // Return previous mode for file_des
-    //
-    fcntl(file_des, F_SETFL, old_flags);
-    // Unmap mapped file
-	//
-	if (munmap(file_buffer, file_stat.st_size) == -1)
-		perror("Error while unmapping file from memory: ");
-
-	return false;
+	return 0;
 }
 
-void print_line(int file_des, vector_t* table, size_t line_number)
+void print_line(vector_t* table, char const* file_buffer, size_t line_number)
 {
-    off_t line_pos = line_number == 0
+    size_t line_pos = line_number == 0
             ? 0
             : vector_get(table, line_number - 1) + 1;
 
     size_t line_length = vector_get(table, line_number) - line_pos + 1;
-    char* line = calloc(line_length + 1, sizeof(char));
+	file_buffer += line_pos;
 
-    if (line == NULL)
-    {
-        perror("Print line error: ");
-        return;
-    }
-    lseek(file_des, line_pos, SEEK_SET);
-    read(file_des, line, line_length);
-    printf("%s", line);
-    free(line);
+	for (size_t i =0; i < line_length; ++i)
+	{
+		fputc(file_buffer[i], stdout);
+	}
 }
 
-bool line_manage(int file_des, vector_t* table, size_t line_num)
+int line_manage(vector_t* table, char const* file_buffer, size_t line_num)
 {
 	if (line_num == 0)
-		return true;
-
+	{
+		return -1;
+	}
 	else if (line_num <= table->size)
 	{
 		printf("%lu|", line_num);
-		print_line(file_des, table, line_num - 1);
+		print_line(table, file_buffer, line_num - 1);
 	}
 	else
+	{
 		printf("Incorrect line number. Try again:\n");
-
-	return false;
+	}
+	return 0;
 }
 
 void scan_luint(size_t* value)
@@ -159,10 +115,18 @@ int main(int argc, char** argv)
 		perror("Cannot open input file\n");
 		return EXIT_FAILURE;
 	}
-	vector_t table;
 	size_t line_num = 0;
+	vector_t table;
+	size_t buffer_size = 0;
+	char* file_buffer = map_file_to_buffer(file_des, &buffer_size);
 
-	if (vector_init(&table) || fill_table(&table, file_des))
+	if (file_buffer == NULL)
+	{
+		return EXIT_FAILURE;
+	}
+	close(file_des);
+
+	if (vector_init(&table) || fill_table(&table, file_buffer))
 	{
 		perror("Error, cannot create table\n");
 		vector_destroy(&table);
@@ -177,11 +141,10 @@ int main(int argc, char** argv)
 	while(1)
 	{
 		int result =  wait_for_input(0 /*stdin*/, TIMEOUT);
-
 		if (result == 1)
 		{
 			scan_luint(&line_num);
-			if (line_manage(file_des, &table, line_num))
+			if (line_manage(&table, file_buffer, line_num))
 				break;
 		}
 		else if (result == 0)
@@ -189,7 +152,7 @@ int main(int argc, char** argv)
 			printf("Input timeout\n");
 			for (size_t i = 1; i <= table.size; ++i)
 			{
-				line_manage(file_des, &table, i);
+				line_manage(&table, file_buffer, i);
 			}
 			break;
 		}
@@ -199,7 +162,7 @@ int main(int argc, char** argv)
 			break;
 		}
 	}
-	close (file_des);
+	munmap(file_buffer, buffer_size);
 	vector_destroy(&table);
 	return EXIT_SUCCESS;
 }
