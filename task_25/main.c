@@ -85,9 +85,12 @@ int main()
 	//-----------------------------------------------------------//
 	else if(rpid == 0)
 	{
-		return redirect(p_filedes[1], STDOUT_FILENO, make_upper)
+		int res = redirect(p_filedes[1], STDOUT_FILENO, make_upper)
 			? EXIT_FAILURE
 			: EXIT_SUCCESS;
+		close_pipe(p_filedes);
+
+		return res;
 	}
 	//-----------------------------------------------------------//
 	//	* Parent branch

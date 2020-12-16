@@ -34,6 +34,11 @@ int main(int argc, char** argv)
 {
 	pid_t child_pid = fork();
 
+	if (child_pid == -1)
+	{
+		perror("Error while forking");
+		return EXIT_FAILURE;
+	}
 	// Child branch
 	if (child_pid == 0)
 	{
