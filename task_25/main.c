@@ -41,7 +41,6 @@ int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 	}
 	return 0;
 }
-
 int close_pipe(int pfildes[2])
 {
 	errno = 0;
@@ -51,6 +50,19 @@ int close_pipe(int pfildes[2])
 		return -1;
 	}
 	return 0;
+}
+int wait_for_child()
+{
+	while(wait(&ch_stat) == -1)
+	{
+		if(errno == EINTR)
+		{
+			errno = 0;
+			continue;
+		}
+		return -1;
+	}
+	retunr 0;
 }
 
 int main()
@@ -62,8 +74,8 @@ int main()
 		perror("Error in initializing pipe");
 		return -1;
 	}
-
 	pid_t rpid = fork();
+	
 	if(rpid == -1)
 	{
 		perror("Error in fork");
@@ -78,6 +90,7 @@ int main()
 			? EXIT_FAILURE
 			: EXIT_SUCCESS;
 	}
+	//
 	//	* Parent branch
 	//
 	if (redirect(STDIN_FILENO, p_filedes[0], void_editor))
@@ -87,18 +100,12 @@ int main()
 	}
 	int ch_stat;
 
-	while(wait(&ch_stat) == -1)
+	if (wait_for_child())
 	{
-		if(errno == EINTR)
-		{
-			errno = 0;
-			continue;
-		}
 		perror("Error while waitin child process");
 		close_pipe(p_filedes);
-		return 1;
+		return EXIT_FAILURE;
 	}
-
 	close_pipe(p_filedes);
-	return 0;
+	return EXIT_SUCCESS;
 }
