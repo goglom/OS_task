@@ -12,8 +12,8 @@ void make_upper(char* buff, size_t n)
 
 int main()
 {
-    FILE* input = popen("echo < input.txt", "r");
-    if (f == NULL) 
+    FILE* input = popen("cat input.txt", "r");
+    if (input == NULL)
 	{
         perror("popen() error");
         return EXIT_FAILURE;
@@ -22,21 +22,26 @@ int main()
     char buf[BUFFER_SIZE];
     size_t read_count = fread(buf, sizeof(char), BUFFER_SIZE, input);
 
-    if (ferror(f) == -1) 
+    if (ferror(input) == -1)
 	{
         perror("fread() error");
-        pclose(f);
+
+		if (pclose(input) == -1)
+		{
+        	perror("pclose() error");
+        	return EXIT_FAILURE;
+    	}
         return EXIT_FAILURE;
     }
-    if (pclose(f) == -1) 
-	{	
+    if (pclose(input) == -1)
+	{
         perror("pclose() error");
         return EXIT_FAILURE;
     }
     make_upper(buf, read_count);
     fwrite(buf, read_count, 1, stdout);
-	
-    if (ferror(f) == -1) 
+
+    if (ferror(input) == -1)
 	{
         perror("fwrite() error");
         return EXIT_FAILURE;
