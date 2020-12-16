@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 
-#define BUF_SIZE 64
+#define BUF_SIZE ((size_t)1024)
 
 void make_upper(char* buff, size_t n)
 {
@@ -29,7 +29,7 @@ int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 			errno = 0;
 			continue;
 		}
-		perror("Error in reading from pipe");
+		perror("redirect() - error in reading from pipe");
 		return -1;
 	}
 	editor(buf, count);
@@ -41,18 +41,17 @@ int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 	}
 	return 0;
 }
-int close_pipe(int pfildes[2])
+void close_pipe(int pfildes[2])
 {
-	errno = 0;
 	if(close(pfildes[0]) || close(pfildes[1]) == -1)
 	{
 		perror("Error in closing pipe");
-		return -1;
 	}
-	return 0;
 }
 int wait_for_child()
 {
+	int ch_stat;
+	errno = 0;
 	while(wait(&ch_stat) == -1)
 	{
 		if(errno == EINTR)
@@ -62,7 +61,7 @@ int wait_for_child()
 		}
 		return -1;
 	}
-	retunr 0;
+	return 0;
 }
 
 int main()
@@ -75,7 +74,7 @@ int main()
 		return -1;
 	}
 	pid_t rpid = fork();
-	
+
 	if(rpid == -1)
 	{
 		perror("Error in fork");
@@ -83,14 +82,14 @@ int main()
 		return -1;
 	}
 	//	*	Child branch
-	//
+	//-----------------------------------------------------------//
 	else if(rpid == 0)
 	{
 		return redirect(p_filedes[1], STDOUT_FILENO, make_upper)
 			? EXIT_FAILURE
 			: EXIT_SUCCESS;
 	}
-	//
+	//-----------------------------------------------------------//
 	//	* Parent branch
 	//
 	if (redirect(STDIN_FILENO, p_filedes[0], void_editor))
@@ -98,8 +97,6 @@ int main()
 		close_pipe(p_filedes);
 		return EXIT_FAILURE;
 	}
-	int ch_stat;
-
 	if (wait_for_child())
 	{
 		perror("Error while waitin child process");
