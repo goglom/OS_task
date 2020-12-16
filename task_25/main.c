@@ -13,34 +13,31 @@ void make_upper(char* buff, size_t n)
 	for(size_t i = 0; i < n; ++i)
 		buff[i] = toupper(buff[i]);
 }
-void void_editor(char*, size_t)
+void void_editor(char* a, size_t b)
 {
 }
 int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 {
 	errno = 0;
 	char buf[BUF_SIZE] = {0};
-	ssize_t count;
-	
-	while(count = read(read_fd, buff, BUF_SIZE)== -1)
+	ssize_t count = 0;
+
+	while ((count = read(read_fd, buf, BUF_SIZE)) == -1)
 	{
 		if(errno == EINTR)
 		{
 			errno = 0;
 			continue;
 		}
-		else if (count == -1)
-		{
-			perror("Error in reading from pipe");
-			return -1;
-		}
-		editor(buf, count);
-		
-		if (write(STDOUT_FILENO, buf, count) == -1)
-		{
-			perror("read_toupper_write() - error while writing to write_fd");
-			return -2;
-		}
+		perror("Error in reading from pipe");
+		return -1;
+	}
+	editor(buf, count);
+
+	if (write(write_fd, buf, count) == -1)
+	{
+		perror("redirect() - error while writing to write_fd");
+		return -2;
 	}
 	return 0;
 }
@@ -59,7 +56,7 @@ int close_pipe(int pfildes[2])
 int main()
 {
 	int p_filedes[2];
-	
+
 	if(pipe(p_filedes) == -1)
 	{
 		perror("Error in initializing pipe");
@@ -73,24 +70,23 @@ int main()
 		close_pipe(p_filedes);
 		return -1;
 	}
-	/*
-		*	Child branch
-	*/
+	//	*	Child branch
+	//
 	else if(rpid == 0)
 	{
 		return redirect(p_filedes[1], STDOUT_FILENO, make_upper)
 			? EXIT_FAILURE
 			: EXIT_SUCCESS;
 	}
-	/*
-		* Parent branch
-	*/
+	//	* Parent branch
+	//
 	if (redirect(STDIN_FILENO, p_filedes[0], void_editor))
 	{
 		close_pipe(p_filedes);
 		return EXIT_FAILURE;
 	}
 	int ch_stat;
+
 	while(wait(&ch_stat) == -1)
 	{
 		if(errno == EINTR)
@@ -102,7 +98,7 @@ int main()
 		close_pipe(p_filedes);
 		return 1;
 	}
-	
+
 	close_pipe(p_filedes);
 	return 0;
 }
