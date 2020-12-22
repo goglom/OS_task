@@ -33,9 +33,14 @@ int main(int argc, char* argv[])
     	perror("pclose () error");
     	return EXIT_FAILURE;
     }
-    if (WIFEXITED(status))
+    else if (WIFEXITED(status))
     {
-    	printf("Child exit status: %d\n", WEXITSTATUS(status));
+	int exit_stat = WEXITSTATUS(status);
+	if (exit_stat ! = 0)
+	{
+    		printf("Child exit with non null exit code: %d\n", WEXITSTATUS(status));
+		return EXIT_FAILURE;
+	}
     }
     else if (WIFSIGNALED(status))
     {
