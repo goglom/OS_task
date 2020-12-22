@@ -21,7 +21,6 @@ int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 	errno = 0;
 	char buf[BUF_SIZE] = {0};
 	ssize_t count = 0;
-
 	while ((count = read(read_fd, buf, BUF_SIZE)) == -1)
 	{
 		if(errno == EINTR)
@@ -33,7 +32,6 @@ int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 		return -1;
 	}
 	editor(buf, count);
-
 	if (write(write_fd, buf, count) == -1)
 	{
 		perror("redirect() - error while writing to write_fd");
@@ -43,7 +41,7 @@ int redirect(int read_fd, int write_fd, void (*editor)(char*, size_t))
 }
 void close_pipe(int pfildes[2])
 {
-	if(close(pfildes[0]) || close(pfildes[1]) == -1)
+	if(close(pfildes[0]) == -1 || close(pfildes[1]) == -1)
 	{
 		perror("Error in closing pipe");
 	}

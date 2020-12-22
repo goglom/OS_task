@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <wait.h>
 
 #define BUFFER_SIZE 100
 
@@ -15,7 +16,7 @@ int main()
     FILE* input = popen("cat input.txt", "r");
     if (input == NULL)
 	{
-        perror("popen() error");
+        perror("Error: popen()");
         return EXIT_FAILURE;
     }
 
@@ -24,16 +25,16 @@ int main()
 
     if (ferror(input) == -1)
 	{
-        perror("fread() error");
+        perror("Error: fread() from out end of pipe");
 		if (pclose(input) == -1)
 		{
-			perror("pclose() error");
+			perror("Error: pclose()");
 		}
 		return EXIT_FAILURE;
 	}
 	if (pclose(input) == -1)
 	{
-		perror("pclose() error");
+		perror("Error: pclose()");
 		return EXIT_FAILURE;
 	}
     make_upper(buf, read_count);
@@ -41,7 +42,7 @@ int main()
 
     if (ferror(input) == -1)
 	{
-        perror("fwrite() error");
+        perror("Error: fwrite() in stdout");
         return EXIT_FAILURE;
     }
 
