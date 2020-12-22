@@ -32,11 +32,28 @@ int main()
 		}
 		return EXIT_FAILURE;
 	}
-	if (pclose(input) == -1)
+	int status = pclose(input);
+    
+	if (status == -1)
+    {
+    	perror("pclose () error");
+    	return EXIT_FAILURE;
+    }
+    else if (WIFEXITED(status))
+    {
+	int exit_stat = WEXITSTATUS(status);
+	if (exit_stat ! = 0)
 	{
-		perror("Error: pclose()");
+    		printf("Child exit with non null exit code: %d\n", WEXITSTATUS(status));
 		return EXIT_FAILURE;
 	}
+    }
+    else if (WIFSIGNALED(status))
+    {
+		printf("Child closed by signal: %d\n", WTERMSIG(status));
+		return EXIT_FAILURE;
+    }
+	
     make_upper(buf, read_count);
     fwrite(buf, read_count, 1, stdout);
 
