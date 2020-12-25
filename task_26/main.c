@@ -30,17 +30,13 @@ int my_pclose(FILE* pipe)
 	}
 	else if (WIFSIGNALED(status))
 	{
-		printf("killed by signal\n", WTERMSIG(status));
+		printf("Child killed by signal\n", WTERMSIG(status));
 		return -1;
 	}
 	else if (WIFSTOPPED(status))
 	{
-		printf("stopped by signal: %d\n", WSTOPSIG(status));
+		printf("Child stopped by signal: %d\n", WSTOPSIG(status));
 		return -1;
-	}
-	else if (WIFCONTINUED(status))
-	{
-		printf("continued\n");
 	}
 	return 0;
 }
